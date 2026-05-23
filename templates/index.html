@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Sistema de Empréstimo de Materiais</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f9; color: #333; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        
+        .login-card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 320px; margin: 100px auto; }
+        .login-card h2 { text-align: center; margin-top: 0; color: #007BFF; }
+        input, select, button { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        
+        button { background: #007BFF; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        .btn-alterar { background: #28a745; width: auto; padding: 6px 15px; margin: 0; }
+        .btn-alterar:hover { background: #218838; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; background: #343a40; color: white; padding: 15px 20px; border-radius: 5px; margin-bottom: 20px; }
+        .logout-btn { color: #ffc107; text-decoration: none; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        th, td { padding: 12px; border: 1px solid #dee2e6; text-align: left; }
+        th { background: #e9ecef; }
+        
+        .badge { padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; display: inline-block; }
+        .Disponível { background: #d4edda; color: #155724; }
+        .Ocupada { background: #fff3cd; color: #856404; }
+        .INDisponível { background: #f8d7da; color: #721c24; }
+        
+        .alert { padding: 12px; background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; border-radius: 4px; margin-bottom: 20px; text-align: center; }
+        .bloqueado { color: #999; font-style: italic; font-size: 13px; }
+        .form-acoes { display: flex; gap: 8px; margin: 0; align-items: center; }
+        .select-acao { padding: 6px; margin: 0; width: 120px; }
+        .select-user { padding: 6px; margin: 0; width: 90px; }
+    </style>
+    <script>
+        // Função simples para mostrar/esconder a seleção de usuários dinamicamente na tela
+        function verificarStatus(selectElement, idMaterial) {
+            var usuarioSelect = document.getElementById('user-select-' + idMaterial);
+            if (selectElement.value === 'Ocupada') {
+                usuarioSelect.style.display = 'inline-block';
+            } else {
+                usuarioSelect.style.display = 'none';
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for msg in messages %}<div class="alert">{{ msg }}</div>{% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <!-- TELA DE LOGIN -->
+        {% if tela == 'login' %}
+        <div class="login-card">
+            <h2>Acesso ao Sistema</h2>
+            <form method="POST">
+                <label>ID do Usuário:</label>
+                <input type="text" name="usuario" placeholder="Ex: 930" required>
+                <label>Chave de Acesso:</label>
+                <input type="text" name="chave" placeholder="Ex: A1234" required>
+                <button type="submit">Entrar</button>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- TELA DO PAINEL -->
+        {% if tela == 'painel' %}
+        <div class="header">
+            <h2>Painel Geral de Empréstimos</h2>
+            <div>
+                <span>Usuário atual: <strong>{{ usuario_atual_logado }}</strong></span> | 
+                <a class="logout-btn" href="{{ url_for('logout') }}">Sair</a>
+            </div>
+        </div>
+
+        <p>💡 <em>Regra: Todos os itens iniciam como <strong>INDisponível</strong>. Altere para <strong>Disponível</strong> para liberar ou <strong>Ocupada</strong> para registrar um empréstimo.</em></p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Item (Material)</th>
+                    <th>Numerador (Dono)</th>
+                    <th>Usuário Atual (Com quem está)</th>
+                    <th>Status Atual</th>
+                    <th>Ações (Exclusivo do Dono)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mat in materiais %}
+                <tr>
+                    <td><strong>{{ mat.nome }}</strong></td>
+                    <td>{{ mat.numerador }}</td>
+                    <td>
+                        <!-- Destaca se o item foi transferido para outra pessoa -->
+                        {% if mat.numerador != mat.usuario_atual %}
+                            <strong style="color: #d9381e;">👤 {{ mat.usuario_atual }} (Emprestado)</strong>
+                        {% else %}
+                            <span>👤 {{ mat.usuario_atual }} (Dono)</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge {{ mat.status }}">{{ mat.status }}</span></td>
+                    <td>
+                        {% if mat.numerador == usuario_atual_logado %}
+                        <form action="{{ url_for('alterar_status', material_id=mat.id) }}" method="POST" class="form-acoes">
+                            
+                            <!-- Menu de Status -->
+                            <select name="novo_status" class="select-acao" onchange="verificarStatus(this, '{{ mat.id }}')">
+                                <option value="INDisponível" {% if mat.status == 'INDisponível' %}selected{% endif %}>INDisponível</option>
+                                <option value="Disponível" {% if mat.status == 'Disponível' %}selected{% endif %}>Disponível</option>
+                                <option value="Ocupada" {% if mat.status == 'Ocupada' %}selected{% endif %}>Ocupada</option>
+                            </select>
+
+                            <!-- Menu de escolha de Usuários (só aparece se o status selecionado for 'Ocupada') -->
+                            <select name="novo_usuario_atual" id="user-select-{{ mat.id }}" class="select-user" style="display: {% if mat.status == 'Ocupada' %}inline-block{% else %}none{% endif %};">
+                                {% for u_id in lista_usuarios %}
+                                    <option value="{{ u_id }}" {% if mat.usuario_atual == u_id %}selected{% endif %}>{{ u_id }}</option>
+                                {% endfor %}
+                            </select>
+
+                            <button type="submit" class="btn-alterar">Salvar</button>
+                        </form>
+                        {% else %}
+                        <span class="bloqueado">Apenas para Usuário {{ mat.numerador }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+    </div>
+</body>
+</html>
