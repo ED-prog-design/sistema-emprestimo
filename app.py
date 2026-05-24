@@ -1,10 +1,10 @@
-import random
 import sqlite3
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
 app = Flask(__name__)
 app.secret_key = "chave_secreta_para_sessoes"
 # Forçando o Render a atualizar o sistema
+
 DATABASE = "sistema.db"
 
 
@@ -28,7 +28,7 @@ def inicializar_banco():
     """
     )
 
-    # NOVO: Cria tabela de materiais incluindo o campo 'usuario_atual'
+    # Cria tabela de materiais incluindo o campo 'usuario_atual'
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS materiais (
@@ -45,43 +45,40 @@ def inicializar_banco():
 
     cursor.execute("SELECT COUNT(*) FROM usuarios")
     if cursor.fetchone()[0] == 0:
-        lista_usuarios = [
-            "930",
-            "940",
-            "950",
-            "960",
-            "970",
-            "980",
-            "990",
-            "1000",
-            "1010",
-            "1020",
-            "931",
-            "941",
-            "951",
-            "961",
-            "971",
-            "981",
-            "991",
-            "1001",
-            "1011",
-            "1021",
-        ]
+        # NOVO: Dicionário estático com chaves fixas (1 letra e 4 números) pré-geradas.
+        # Dessa forma, a senha NUNCA mais muda quando o Render reiniciar.
+        usuarios_fixos = {
+            "930": "R7142",
+            "940": "K9053",
+            "950": "M4180",
+            "960": "X2931",
+            "970": "A8542",
+            "980": "P1094",
+            "990": "J6325",
+            "1000": "F7410",
+            "1010": "V3628",
+            "1020": "D9514",
+            "931": "H4821",
+            "941": "L7036",
+            "951": "N1592",
+            "961": "Q8473",
+            "971": "W2615",
+            "981": "G3940",
+            "991": "Y5281",
+            "1001": "B6749",
+            "1011": "C1358",
+            "1021": "Z8204",
+        }
+
         materiais_base = ["Furadeira", "Martelete", "Enxada", "Pá", "Carriola"]
 
-        print("\n=== ATENÇÃO: NOVAS CHAVES DE ACESSO GERADAS ===")
-        for user_id in lista_usuarios:
-            letra = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-            numeros = "".join(random.choices("0123456789", k=4))
-            chave = f"{letra}{numeros}"
-
+        for user_id, chave in usuarios_fixos.items():
             cursor.execute(
                 "INSERT INTO usuarios (id, chave_acesso) VALUES (?, ?)",
-                (user_id, cancellation_token := chave),
+                (user_id, chave),
             )
-            print(f"Usuário: {user_id} | Chave: {chave}")
 
-            # MUDANÇA: Status inicial agora é 'INDisponível' e 'usuario_atual' começa sendo o próprio dono
+            # Status inicial 'INDisponível' e 'usuario_atual' começa sendo o próprio dono
             for mat in materiais_base:
                 cursor.execute(
                     """
@@ -92,7 +89,6 @@ def inicializar_banco():
                 )
 
         conn.commit()
-        print("=========================================\n")
     conn.close()
 
 
@@ -128,7 +124,6 @@ def painel():
 
     conn = obter_conexao()
     todos_materiais = conn.execute("SELECT * FROM materiais").fetchall()
-    # Busca a lista completa de IDs de usuários para preencher o campo de empréstimo (select)
     usuarios = conn.execute("SELECT id FROM usuarios ORDER BY id").fetchall()
     lista_ids = [u["id"] for u in usuarios]
     conn.close()
@@ -157,15 +152,10 @@ def alterar_status(material_id):
     ).fetchone()
 
     if material:
-        # REGRA DE SEGURANÇA: Apenas o dono original (numerador) altera
         if material["numerador"] == usuario_logado:
-
-            # Lógica de negócio solicitada:
             if novo_status == "Ocupada":
-                # Se mudou para Ocupado, usa o ID selecionado no formulário
                 usuario_destino = novo_usuario_atual
             else:
-                # Se for Disponível ou INDisponível, volta a ficar vinculado ao dono original
                 usuario_destino = material["numerador"]
 
             conn.execute(
@@ -177,9 +167,7 @@ def alterar_status(material_id):
                 (novo_status, usuario_destino, material_id),
             )
             conn.commit()
-            flash(
-                f"Material '{material['nome']}' atualizado com sucesso!"
-            )
+            flash(f"Material '{material['nome']}' atualizado com sucesso!")
         else:
             flash("Erro: Permissão negada.")
 
@@ -190,7 +178,7 @@ def alterar_status(material_id):
 @app.route("/logout")
 def logout():
     session.pop("usuario_logado", None)
-    return redirect(url_for("login"))
+    return redirect(url_for("logout"))
 
 
 if __name__ == "__main__":
