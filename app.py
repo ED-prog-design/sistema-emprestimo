@@ -4,7 +4,7 @@ from flask import Flask, flash, redirect, render_template, request, session, url
 
 app = Flask(__name__)
 app.secret_key = "chave_secreta_para_sessoes"
-
+# Forçando o Render a atualizar o sistema
 DATABASE = "sistema.db"
 
 
@@ -195,4 +195,4 @@ def logout():
 
 if __name__ == "__main__":
     inicializar_banco()
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
